@@ -74,6 +74,7 @@ def get_input(text, type, error="Invalid input!"):
 
 
 def clean():
+	__terminal__.clear()
 	pass
 	# os.system("cls" if os.name == "nt" else "clear")
 
