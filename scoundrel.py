@@ -56,7 +56,7 @@ load_configs()
 """
 
 def get_input(text, type, error="Invalid input!"):
-	input(text)
+	return str(input(text))
 	# # Check if instant input is on
 	# if not configs["instant_actions"]:
 	# 	while True:
