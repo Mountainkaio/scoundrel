@@ -56,27 +56,24 @@ load_configs()
 """
 
 def get_input(text, type, error="Invalid input!"):
-	return str(input(text))
-	# # Check if instant input is on
-	# if not configs["instant_actions"]:
-	# 	while True:
-	# 		try:
-	# 			var = input(text)
-	# 			return type(var)
-	# 		except Exception:
-	# 			print(error)
-	# else:
-	# 	print(text, end="", flush=True)
-	# 	with instant_input.InstantInput() as inp:
-	# 		while True:
-	# 			key = inp.get_key()
-	# 			return type(key)
+	# Check if instant input is on
+	if not configs["instant_actions"]:
+		while True:
+			try:
+				var = input(text)
+				return type(var)
+			except Exception:
+				print(error)
+	else:
+		print(text, end="", flush=True)
+		with instant_input.InstantInput() as inp:
+			while True:
+				key = inp.get_key()
+				return type(key)
 
 
 def clean():
-	__terminal__.clear()
-	pass
-	# os.system("cls" if os.name == "nt" else "clear")
+	os.system("cls" if os.name == "nt" else "clear")
 
 def strike(text):
     result = ''
