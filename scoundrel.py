@@ -4,6 +4,7 @@ import cards_ascii
 from cards_ascii import colors
 import time
 import instant_input
+import ast
 
 """
 ###############
@@ -81,6 +82,49 @@ def strike(text):
         result = result + c + '\u0336'
     return result
 
+SAVE_STATE_FILE = "save_state.txt"
+
+save_state_vars = ["current_room", "difficulty", "room.card_seq", "room.deck", "seed", "first_game_action", "player.last_card_killed", "player.current_weapon", "room.skipped_last", "room.played_first_card", "rng_state_at_room_start"]
+
+def save_state(vars, save_file):
+    with open(save_file, "w") as f:
+    	for k in vars:
+    		if "." in k:
+    			obj_name, attr = k.split(".", 1)
+    			value = getattr(globals()[obj_name], attr)
+    		else:
+    			value = globals()[k]
+    		f.write(f"{k}={value}\n")
+
+def load_state(save_file):
+	global room
+	import ast
+	
+	# First pass: just collect all values
+	values = {}
+	with open(save_file, "r") as f:
+		for line in f:
+			if "=" not in line:
+				continue
+			k, v = line.strip().split("=", 1)
+			try:
+				values[k] = ast.literal_eval(v)
+			except (ValueError, SyntaxError):
+				values[k] = v
+	
+	# Restore RNG first, before anything touches random
+	if "rng_state_at_room_start" in values:
+		random.setstate(values["rng_state_at_room_start"])
+	
+	# Now apply all values
+	for k, v in values.items():
+		if k == "rng_state":
+			continue
+		if "." in k:
+			obj_name, attr = k.split(".", 1)
+			setattr(globals()[obj_name], attr, v)
+		else:
+			globals()[k] = v
 """
 ###########
 ### DECK ###
@@ -97,7 +141,7 @@ values_to_cards =  {
 }
 
 card_names = list(card_values.keys())
-suits = ["spades", "diamonds", "hearts", "clubs"]
+suits = ["spades", "diamonds", "hearts", "clubs", "bananas"]
 
 class Card:
 	def __init__(self, rank, suit):
@@ -131,7 +175,7 @@ deck_in_ascii = cards_ascii.cards_name_to_ascii
 """
 
 class Room:
-	def __init__(self, deck: list):
+	def __init__(self, deck: list, blank=False):
 		self.original_deck = deck.copy()  # Never modified - used for endless mode
 		self.deck = deck.copy()  # Cards not yet dealt
 		
@@ -139,11 +183,12 @@ class Room:
 		self.skipped_last = False
 		self.played_first_card = False
 		
-		# Deal initial 4 cards
-		self.card_seq = random.sample(self.deck, k=4)
-		# Remove them from deck
-		for card in self.card_seq:
-			self.deck.remove(card)
+		if not blank:
+			# Deal the 4 initial cards
+			self.card_seq = random.sample(self.deck, k=4)
+			# Remove 'em from the deck
+			for card in self.card_seq:
+				self.deck.remove(card)
 	
 	def choose_card(self, card):
 		card_selected = self.card_seq[card-1]
@@ -263,6 +308,7 @@ use_weapon = True
 difficulty = "easy"
 endless_mode = False
 first_game_action = True
+rng_state_at_room_start = random.getstate()
 
 # Run info
 highest_weapon = 0
@@ -326,6 +372,335 @@ You can enable "Instant Actions" in the Configs menu.
 When Instant Actions are ON, menus react instantly to key presses.
 """
 
+tutorial_deck = ["A_of_diamonds", "2_of_spades", "5_of_clubs", "3_of_hearts"]
+
+def tutorial():
+	tutorial_over = False
+	tutorial_part = 1
+	tutorial_explanation = "rooms"
+	tutorial_room = Room(tutorial_deck)
+	tutorial_player = Player(20)
+	
+	print("Hello! This is SlimeStaff484, and this is my game: Scoundrel!\n")
+	input("Press enter to continue...")
+	clean()
+	print("If you chose to do this tutorial, prolly means your attention span does not exist :D\n")
+	input("Press enter to continue...")
+	clean()
+	print("In any case, let's get to business :)\n")
+	input("Press enter to continue...")
+	clean()
+	
+	print("This is a room:\n")
+	while not tutorial_over:
+		# Room explanation
+		if tutorial_explanation == "rooms":
+			print("==========\\ ROOM /==========")
+			cards_ascii.print_cards_side_by_side([deck_in_ascii[name] for name in tutorial_room.card_seq])
+			if tutorial_part == 1:
+				print("\nAs you can see, it consists of 4 cards.\n")
+				tutorial_part = 2
+				input("Press enter to continue...")
+				clean()
+				continue
+			if tutorial_part == 2:
+				print("\nNow, you see those 4 cards, right?\nTheir suits are what define them.\n")
+				tutorial_part = 3
+				input("Press enter to continue...")
+				clean()
+				continue
+			if tutorial_part == 3:
+				# Cards explanation
+				diamonds_pos = tutorial_room.card_seq.index("A_of_diamonds") + 1
+				hearts_pos = tutorial_room.card_seq.index("3_of_hearts") + 1
+				spades_pos = tutorial_room.card_seq.index("2_of_spades") + 1
+				clubs_pos = tutorial_room.card_seq.index("5_of_clubs") + 1
+				
+				index_padding = {1: 0, 2: 18, 3: 28, 4: 38}
+				name_to_index = {"hearts": hearts_pos, "spades": spades_pos, "diamonds": diamonds_pos, "clubs": clubs_pos}
+				
+				st = "________"
+				i = name_to_index['diamonds']
+				p = index_padding[i]
+				print(f"{st:>{p}}")
+				
+				print("\nThis is a diamond card; it acts as your weapon, and it'll give you strength based on their number.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 4
+				continue
+			
+			if tutorial_part == 4:
+				i = name_to_index['hearts']
+				p = index_padding[i]
+				print(f"{st:>{p}}")
+				
+				print("\nThis a heart card; it'll heal you based on their number.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 5
+				continue
+			
+			if tutorial_part == 5:
+				index_padding = {1: 0, 2: 10, 3: 20, 4: 30}
+				i1 = name_to_index['clubs']
+				i2 = name_to_index['spades']
+				p1 = index_padding[i1]
+				p2 = index_padding[i2]
+				p1, p2 = sorted([p1, p2])
+				a = [" " * p1, st, " " * (p2 - p1 - len(st)), st]
+				print(''.join(a))
+				
+				print("\nThose are the enemies, clubs and spades; they deal damage based on their number\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 6
+			
+			if tutorial_part == 6:
+				# Player introduction
+				print("See? It's not that difficult, right?\n")
+				input("Press enter to continue...")
+				clean()
+				print("Lemme now explain the player stats.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_explanation = "player"
+				tutorial_part = 1
+			
+		if tutorial_explanation == "player":
+			print("\n==========\\ YOU /==========\n")
+			print(f"HP: {tutorial_player.hp}")
+			print(f"Current strenght: {tutorial_player.current_weapon}")
+			print(f"Last card killed: {tutorial_player.last_card_killed}")
+			print(f"Cards left: {len(tutorial_room.deck)}")
+			
+			if tutorial_part == 1:
+				print("\nThis is all your information!\n")
+				input("Press enter to continue...")
+				clean()
+				print("...\n")
+				input("Press enter to continue...")
+				clean()
+				print("What? You want me to explain it???\n")
+				input("Press say to say yes...")
+				clean()
+				print("*Sigh* Fine, lemme explain it")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 2
+			
+			if tutorial_part == 2:
+				print("\n==========\\ YOU /==========\n")
+				print(f"HP: {tutorial_player.hp} <- This is your HP. If it reaches 0, you lose.\n")
+				input("Press enter to continue")
+				clean()
+				tutorial_part = 3
+			
+			if tutorial_part == 3:
+				print("\n==========\\ YOU /==========\n")
+				print(f"HP: {tutorial_player.hp}")
+				print(f"Current strenght: {tutorial_player.current_weapon} <- This is your current strenght. Pretty much your defense.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 4
+			
+			if tutorial_part == 4:
+				print("\n==========\\ YOU /==========\n")
+				print(f"HP: {tutorial_player.hp}")
+				print(f"Current strenght: {tutorial_player.current_weapon}")
+				print(f"Last card killed: {tutorial_player.last_card_killed} <- This is the last card you killed. This info is very important, and will be explained soon.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 5
+			
+			if tutorial_part == 5:
+				print("\n==========\\ YOU /==========\n")
+				print(f"HP: {tutorial_player.hp}")
+				print(f"Current strenght: {tutorial_player.current_weapon}")
+				print(f"Last card killed: {tutorial_player.last_card_killed}")
+				print(f"Cards left: {len(tutorial_room.deck)} <- This is your win condition. If it reaches 0, you win the game.\n")
+				input("Press enter to continue...")
+				clean()
+				print("That's it for the player info. Now lemme your actions.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_explanation = "actions"
+				tutorial_part = 0
+		
+		if tutorial_explanation == "actions":
+			print("\n==========\\ ACTIONS /==========\n")
+			print("1 - Select card")
+
+			print("2 - Skip")
+			
+			if tutorial_part == 0:
+				clean()
+				print("\n==========\\ ACTIONS /==========\n")
+				print("1 - Select card <- This does what it says.\n")
+				input("Press enter to continue...")
+				clean()
+				print("\n==========\\ ACTIONS /==========\n")
+				print("1 - Select card")
+				print("2 - Skip <- This allows you to skip a room if:\n")
+				print("	You didn't skip the last room;")
+				print("	You haven't made an action in the current room.")
+				print("\nYou can use it again if you beat the room you got after skipping.\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 1
+				continue
+		
+			if tutorial_part == 1:
+				print(f"\nAfter selecting 'select card', you'll chose between the current cards available on the room\nLike this:\nSelect the card (1 - {len(tutorial_room.card_seq)})")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 2
+			if tutorial_part == 2:
+				print("Now, I'll help you to see how the game works!")
+				input("Press enter to continue...")
+				clean()
+				tutorial_explanation = "gameplay"
+				tutorial_part = 0
+		
+		if tutorial_explanation == "gameplay":
+			print("Room: " + str(current_room) + "     Difficulty: " + difficulty)
+			print("==========\\ ROOM /==========")
+			cards_ascii.print_cards_side_by_side([deck_in_ascii[name] for name in tutorial_room.card_seq])
+			
+			print("\n==========\\ YOU /==========\n")
+			print(f"HP: {tutorial_player.hp}")
+			print(f"Current strenght: {tutorial_player.current_weapon}")
+			print(f"Last card killed: {tutorial_player.last_card_killed}")
+			print(f"Cards left: {len(tutorial_room.deck)}")
+			print("\n==========\\ ACTIONS /==========\n")
+			print("1 - Select card")
+
+			print("2 - Skip")
+			if tutorial_part == 0:
+				print("\nLet's start! Select the Ace of diamonds.\nSelect the 1st option:\n")
+				player_input = get_input("#", str)
+			
+				while player_input != "1":
+					player_input = get_input("\nThat ain't 1, is it?\n#", str)
+			
+				if player_input == "1":
+					print(f"\nSelect the card (1 - {len(tutorial_room.card_seq)})\n")
+					player_input = get_input("#", str)
+					while player_input != str(diamonds_pos):
+						player_input = get_input("\nThat ain't a diamond.\n#", str)
+					if player_input == str(diamonds_pos):
+						tutorial_player.current_weapon = 14
+						tutorial_room.card_seq.remove("A_of_diamonds")
+						if spades_pos > diamonds_pos and spades_pos != 1:
+							spades_pos -= 1
+						if clubs_pos > diamonds_pos and clubs_pos != 1:
+							clubs_pos -= 1
+						if hearts_pos > diamonds_pos and hearts_pos != 1:
+							hearts_pos -= 1
+						clean()
+						print("You got 14 strength from the Ace! Btw, the letter cards have those values:\n	A - 14;\n	K - 13;\n	Q - 12;\n	J - 11;\n	T - 10;")
+						input("Press enter to continue...")
+						clean()
+						tutorial_part = 1
+						continue
+			
+			if tutorial_part == 1:
+				print("\nCool, now kill the 2 of spades :)\n")
+				player_input = get_input("#", str)
+				
+				while player_input != "1":
+					player_input = get_input("\nDo you know how to count?\n#", str)
+				
+				if player_input == "1":
+					print(f"\nSelect the card (1 - {len(tutorial_room.card_seq)})\n")
+					player_input = get_input("#", str)
+					while player_input != str(spades_pos):
+						player_input = get_input("\nThat is no spades, my friend\n#", str)
+			
+				tutorial_player.last_card_killed = 2
+				if clubs_pos > spades_pos and clubs_pos != 1:
+					clubs_pos -= 1
+				if hearts_pos > spades_pos and hearts_pos != 1:
+					hearts_pos -= 1
+				tutorial_room.card_seq.remove("2_of_spades")
+				print("\nYou took 0 damage!\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 2
+				continue
+			
+			if tutorial_part == 2:
+				print("\nYou see that your last killed card is now 2? you can't kill anything above that with the weapon; so 2 being the weakest card means that the strongest weapon is now useless :)\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 3
+				continue
+			
+			if tutorial_part == 3:
+				print("\nDon't worry, the number resets after you switch weapons ;)\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 4
+				continue
+			
+			if tutorial_part == 4:
+				print("\nNow, kill the 5 of clubs real quick.\n")
+				player_input = get_input("#", str)
+				
+				while player_input != "1":
+					player_input = get_input("\nYou ain't selecting nothing with this\n#", str)
+				
+				if player_input == "1":
+					print(f"\nSelect the card (1 - {len(tutorial_room.card_seq)})\n")
+					player_input = get_input("# ", str)
+					while player_input != str(clubs_pos):
+						player_input = get_input("\nI'm running out of stuff to say\n#", str)
+				
+				tutorial_room.card_seq.remove("5_of_clubs")
+				tutorial_player.take_damage(5)
+				if hearts_pos > clubs_pos and hearts_pos != 1:
+					hearts_pos -= 1
+				print("\nYou took 5 damage!\n")
+				input("Press enter to continue...")
+				clean()
+				print("Oh no, you took damage! D:\n")
+				input("Press enter to continue...")
+				clean()
+				tutorial_part = 5
+				continue
+			
+			if tutorial_part == 5:
+				print("\nSelect the heart card! So you'll heal :)\n")
+				player_input = get_input("# ", str)
+				
+				while player_input != "1":
+					print("\n...")
+					player_input = get_input("\n#", str)
+				if player_input == "1":
+					print(f"\nSelect the card (1 - {len(tutorial_room.card_seq)})\n")
+					player_input = get_input("#", str)
+					
+					while player_input != str(hearts_pos):
+						print("\n...\n")
+						player_input = get_input("#", str)
+					
+					player.heal(3)
+					tutorial_room.card_seq.remove("3_of_hearts")
+					print("\nYou healed 3 HP!\n")
+					input("Press enter to continue...")
+					clean()
+					tutorial_part = 0
+					tutorial_explanation = "over"
+		
+		if tutorial_explanation == "over":
+			print("And that's pretty much it!\n")
+			input("Press enter to continue...")
+			clean()
+			print("You should be good to go. Hope you have a fun time playing :)\n")
+			input("Press enter to continue...")
+			clean()
+			tutorial_over = True
+
 """
 ################
  ### GAME LOOP ###
@@ -385,7 +760,10 @@ while not game_over or endless_mode:
 			else:
 				difficulty = "normal"
 				#past_menu = True
-			set_seed = input("Seed (leave empty if you want a radom seed)\n# ")
+			set_seed = input("\nSeed (leave empty if you want a radom seed)\n# ")
+			
+			if set_seed == "luckyseven":
+				print("secret seed lol")
 				
 			if set_seed.isnumeric():
 				random.seed(int(set_seed))
@@ -395,15 +773,25 @@ while not game_over or endless_mode:
 			
 		if menu_options == 2:
 			clean()
-			print(game_tutorial1)
-			input("\nPress enter to continue...")
-			clean()
-			print(game_tutorial2)
-			input("\nPress enter to continue...")
-			clean()
-			print(game_tutorial3)
-			input("\nPress enter to continue...")
-			clean()
+			print("What tutorial do you want to do?\n")
+			an = get_input("1 - Text\n2 - Visual\n#", str)
+			while an not in ["1", "2"]:
+				an = get_input("#\n", str)
+			if an == "1":
+				clean()
+				print(game_tutorial1)
+				input("\nPress enter to continue...")
+				clean()
+				print(game_tutorial2)
+				input("\nPress enter to continue...")
+				clean()
+				print(game_tutorial3)
+				input("\nPress enter to continue...")
+				clean()
+			else:
+				clean()
+				tutorial()
+
 		elif menu_options == 3:
 			clean()
 			print("Game made by SlimeStaff484!\n\nHope you enjoy!")
@@ -464,9 +852,16 @@ while not game_over or endless_mode:
 				if c in deck_names:
 					deck_names.remove(c)
 	
+	if set_seed != "potassium":
+		deck_names = [
+	name for name in deck_names
+	if name.split("_")[-1] != "bananas"]
+	
 	# Create room after difficulty is set
+	# Just before room creation (~line 526)
 	if 'room' not in locals():
 		room = Room(deck_names.copy())
+		rng_state_at_room_start = random.getstate()
 		
 	clean()
 	print("Room: " + str(current_room) + "     Difficulty: " + difficulty)
@@ -511,6 +906,10 @@ while not game_over or endless_mode:
 				print(f"infinite_skips state: {infinite_skips}")
 				input()
 		else:
+			if code == "save":
+				save_state(save_state_vars, SAVE_STATE_FILE)
+			if code == "load":
+				load_state(SAVE_STATE_FILE)
 			if code.startswith("/set"):
 			    try:
 			        # Parse
@@ -602,8 +1001,6 @@ while not game_over or endless_mode:
 					input()
 				
 				continue
-		continue
-
 	if not raw_action.isnumeric():
 		print("Invalid input!")
 		continue
@@ -747,6 +1144,7 @@ while not game_over or endless_mode:
 				first_game_action = True
 			
 		room.reset(4)
+		rng_state_at_room_start = random.getstate()
 		if infinite_skips == False:
 			room.skipped_last = True
 		else:
@@ -758,9 +1156,11 @@ while not game_over or endless_mode:
 			# Normal card addition
 			numbers_of_card_to_add = min(3, len(room.deck))
 			room.add_cards(numbers_of_card_to_add)
+			rng_state_at_room_start = random.getstate()
 		elif endless_mode:
 			# Deck is empty in endless mode - replenish!
 			room.replenish_deck()
+			rng_state_at_room_start = random.getstate()
 		
 		if endless_mode:
 		    if difficulty == "easy":
