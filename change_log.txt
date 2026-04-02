@@ -38,4 +38,9 @@ Hello! this is SlimeStaff! From 1.1.0-1, there will now be change logs!
 
 1.1.1-2:
     Reworked card print system. Now, more cards can fit in the screen!
+
+1.1.1-3:
+    Added the save and load cheats; they work like emulators save states and load states
+    
+    Added a 2nd tutorial that has visual explanations!
         
