@@ -435,7 +435,7 @@ def tutorial():
 				p = index_padding[i]
 				print(f"{st:>{p}}")
 				
-				print("\nThis a heart card; it'll heal you based on their number.\n")
+				print("\nThis is a heart card; it'll heal you based on their number.\n")
 				input("Press enter to continue...")
 				clean()
 				tutorial_part = 5
@@ -482,7 +482,7 @@ def tutorial():
 				input("Press enter to continue...")
 				clean()
 				print("What? You want me to explain it???\n")
-				input("Press say to say yes...")
+				input("Press enter to say yes...")
 				clean()
 				print("*Sigh* Fine, lemme explain it")
 				input("Press enter to continue...")
@@ -764,6 +764,9 @@ while not game_over or endless_mode:
 			
 			if set_seed == "luckyseven":
 				print("secret seed lol")
+			
+			if set_seed == "randombsgo":
+				card_amt = 44 if difficulty == "normal" else 52
 				
 			if set_seed.isnumeric():
 				random.seed(int(set_seed))
@@ -853,9 +856,7 @@ while not game_over or endless_mode:
 					deck_names.remove(c)
 	
 	if set_seed != "potassium":
-		deck_names = [
-	name for name in deck_names
-	if name.split("_")[-1] != "bananas"]
+		deck_names = [name for name in deck_names if name.split("_")[-1] != "bananas"]
 	
 	# Create room after difficulty is set
 	# Just before room creation (~line 526)
@@ -906,6 +907,9 @@ while not game_over or endless_mode:
 				print(f"infinite_skips state: {infinite_skips}")
 				input()
 		else:
+			if code == "print_deck":
+				cards_ascii.print_cards_side_by_side([deck_in_ascii[name] for name in room.deck])
+				input()
 			if code == "save":
 				save_state(save_state_vars, SAVE_STATE_FILE)
 			if code == "load":
@@ -1011,9 +1015,12 @@ while not game_over or endless_mode:
 	if action == 1:
 		room.played_first_card = True
 		if len(room.card_seq) < 9:
-			select_card = get_input(f"\nSelect the card (1 - {len(room.card_seq)}):\n# ", str)
+			select_card = get_input(f"\nSelect the card (1 - {len(room.card_seq)}, or 0 to cancel):\n# ", str)
 		else:
-			select_card = input(f"\nSelect the card (1 - {len(room.card_seq)}):\n# ")
+			select_card = input(f"\nSelect the card (1 - {len(room.card_seq)}, or 0 to cancel):\n# ")
+		
+		if select_card == "0":
+			continue
 		
 		num_opt = [i+1 for i in range(len(room.card_seq))]
 		
@@ -1021,7 +1028,10 @@ while not game_over or endless_mode:
 			select_card = get_input("\n# ", str)
 				
 		select_card = int(select_card)
-				
+		
+		if str(select_card) == "0":
+			continue
+		
 		while select_card not in num_opt:
 			select_card = get_input("\n# ", str)
 			while not select_card.isnumeric():
@@ -1055,6 +1065,7 @@ while not game_over or endless_mode:
 		# Deal damage
 		elif selected_card.get_suit() in ["spades", "clubs"]:
 			sel_card_strenght = selected_card.strength()
+			
 			last_killed_card = player.last_card_killed
 			weapon = player.current_weapon
 			
