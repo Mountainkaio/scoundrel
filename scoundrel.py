@@ -141,7 +141,7 @@ values_to_cards =  {
 }
 
 card_names = list(card_values.keys())
-suits = ["spades", "diamonds", "hearts", "clubs", "bananas"]
+suits = ["spades", "diamonds", "hearts", "clubs"]
 
 class Card:
 	def __init__(self, rank, suit):
@@ -756,9 +756,11 @@ while not game_over or endless_mode:
 			
 			if an == 1:
 				difficulty = "easy"
+				difficulty_to_show = "easy"
 				#past_menu = True
 			else:
 				difficulty = "normal"
+				difficulty_to_show = "normal"
 				#past_menu = True
 			set_seed = input("\nSeed (leave empty if you want a radom seed)\n# ")
 			
@@ -766,7 +768,13 @@ while not game_over or endless_mode:
 				print("secret seed lol")
 			
 			if set_seed == "randombsgo":
+				difficulty_to_show = "randombsgo"
 				card_amt = 44 if difficulty == "normal" else 52
+				complete_randombsgo_deck = []
+
+				for i in range(card_amt):
+					card_to_add = random.choice(deck_names)
+					complete_randombsgo_deck.append(card_to_add)
 				
 			if set_seed.isnumeric():
 				random.seed(int(set_seed))
@@ -855,17 +863,14 @@ while not game_over or endless_mode:
 				if c in deck_names:
 					deck_names.remove(c)
 	
-	if set_seed != "potassium":
-		deck_names = [name for name in deck_names if name.split("_")[-1] != "bananas"]
-	
 	# Create room after difficulty is set
 	# Just before room creation (~line 526)
 	if 'room' not in locals():
-		room = Room(deck_names.copy())
+		room = Room(deck_names.copy() if set_seed != "randombsgo" else complete_randombsgo_deck.copy())
 		rng_state_at_room_start = random.getstate()
 		
 	clean()
-	print("Room: " + str(current_room) + "     Difficulty: " + difficulty)
+	print("Room: " + str(current_room) + "     Difficulty: " + difficulty_to_show)
 	print("==========\\ ROOM /==========")
 	cards_ascii.print_cards_side_by_side([deck_in_ascii[name] for name in room.card_seq])
 	print("\n==========\\ YOU /==========\n")
@@ -1013,7 +1018,6 @@ while not game_over or endless_mode:
 	
 	# Select card
 	if action == 1:
-		room.played_first_card = True
 		if len(room.card_seq) < 9:
 			select_card = get_input(f"\nSelect the card (1 - {len(room.card_seq)}, or 0 to cancel):\n# ", str)
 		else:
@@ -1022,15 +1026,14 @@ while not game_over or endless_mode:
 		if select_card == "0":
 			continue
 		
+		room.played_first_card = True
+		
 		num_opt = [i+1 for i in range(len(room.card_seq))]
 		
 		while not select_card.isnumeric():
 			select_card = get_input("\n# ", str)
 				
 		select_card = int(select_card)
-		
-		if str(select_card) == "0":
-			continue
 		
 		while select_card not in num_opt:
 			select_card = get_input("\n# ", str)
@@ -1169,7 +1172,7 @@ while not game_over or endless_mode:
 			room.add_cards(numbers_of_card_to_add)
 			rng_state_at_room_start = random.getstate()
 		elif endless_mode:
-			# Deck is empty in endless mode - replenish!
+			# When deck is empty in endless mode, replenish it
 			room.replenish_deck()
 			rng_state_at_room_start = random.getstate()
 		
