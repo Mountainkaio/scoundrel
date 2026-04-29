@@ -43,4 +43,12 @@ Hello! this is SlimeStaff! From 1.1.0-1, there will now be change logs!
     Added the save and load cheats; they work like emulators save states and load states
     
     Added a 2nd tutorial that has visual explanations!
+
+1.1.1-4:
+    Added the option to cancel a card selection
+    
+    Added the seed "randombsgo":
+        Makes the deck completely random with either 44 or 52 cards.
         
+    Added the command "print_deck":
+        Prints the cards you have left on your deck.
